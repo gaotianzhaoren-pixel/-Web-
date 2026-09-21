@@ -126,7 +126,7 @@ const WEEKEND_SELECTION_KEY = `${KEY}_allowWeekendSelection`;
 const SERVER_URL = "https://script.google.com/macros/s/AKfycbwn64TD1AaB2DIJghnB0atWlkmDHVdz0hFwkTdirOlUU6MlL8PRt6WinAcmq-C6Fg-m9g/exec";
 
 /* ===================== 基本関数 ===================== */
-const fmt = d => d.toISOString().slice(0,10);
+const fmt = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 const jpWeek = ["日","月","火","水","木","金","土"];
 const jpYM = (y,m)=> `${y}年${m}月`;
 const parseISO = iso => { const [Y,M,D] = iso.split("-").map(Number); return new Date(Y,M-1,D); };
