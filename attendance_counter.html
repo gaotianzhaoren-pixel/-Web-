@@ -45,6 +45,7 @@
   .dot.weekend { background:#fcfcfc; }
   .dot.selected { background:#eef4ff; border-color:var(--accent); }
   .toolbar { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .setting { display:inline-flex; align-items:center; gap:4px; white-space:nowrap; }
   .spacer { flex:1; }
   .streaks { margin-top:10px; font-size:14px; color:var(--muted); display:flex; gap:16px; flex-wrap:wrap; }
   .pill { display:inline-flex; align-items:center; gap:6px; padding:4px 8px; border:1px solid var(--grid); border-radius:999px; background:#fff; }
@@ -74,6 +75,10 @@
 
     <button id="quickMarkBtn">今すぐ出席登録</button>
     <button id="selectMonthBtn">この月を全選択</button>
+    <label class="setting">
+      <input id="allowWeekendInput" type="checkbox">
+      土日も選択可能
+    </label>
 
     <div class="spacer"></div>
 
@@ -100,7 +105,7 @@
   <div class="calendar" id="calendar"></div>
 
   <div class="legend">
-    <span><span class="dot weekend"></span>土日（選択不可）</span>
+    <span id="weekendLegend"><span class="dot weekend"></span>土日（選択不可）</span>
     <span><span class="dot selected"></span>選択＝出席</span>
   </div>
 </main>
@@ -115,6 +120,7 @@ const DEFAULT_MIGRATION_KEY = `${KEY}_defaultMigration_2026_08`;
 const LEGACY_MIGRATION_KEY = `${KEY}_defaultMigration_2026_09`;
 const LEGACY_DEFAULT_ATTENDED_DATES = ["2026-09-29","2026-09-30"];
 const RESET_KEY = `${KEY}_reset`;
+const WEEKEND_SELECTION_KEY = `${KEY}_allowWeekendSelection`;
 
 /* ★★★★★ 必ずここを自分のURLに変更する ★★★★★ */
 const SERVER_URL = "https://script.google.com/macros/s/AKfycbwn64TD1AaB2DIJghnB0atWlkmDHVdz0hFwkTdirOlUU6MlL8PRt6WinAcmq-C6Fg-m9g/exec";
@@ -127,6 +133,9 @@ const parseISO = iso => { const [Y,M,D] = iso.split("-").map(Number); return new
 
 function loadSet(){ try{ return new Set(JSON.parse(localStorage.getItem(KEY)||"[]")); }catch(e){ return new Set(); } }
 function saveSet(s){ localStorage.setItem(KEY, JSON.stringify([...s].sort())); }
+function allowWeekendSelection(){
+  return localStorage.getItem(WEEKEND_SELECTION_KEY) === "1";
+}
 
 function migrateDefaultAttendance(){
   if(localStorage.getItem(RESET_KEY)) return;
@@ -141,7 +150,11 @@ function migrateDefaultAttendance(){
 }
 
 function isWeekday(d){ const w=d.getDay(); return w>=1 && w<=5; }
-function isCountedDate(d){ return isWeekday(d) || DEFAULT_ATTENDED_DATES.includes(fmt(d)); }
+function isCountedDate(d){
+  return isWeekday(d) ||
+    DEFAULT_ATTENDED_DATES.includes(fmt(d)) ||
+    (allowWeekendSelection() && !isWeekday(d));
+}
 function inRange(date){
   if(START_DATE && date < parseISO(START_DATE)) return false;
   if(END_DATE   && date > parseISO(END_DATE))   return false;
@@ -189,6 +202,7 @@ let current = (()=>{ const t=new Date(); return new Date(t.getFullYear(),t.getMo
 
 function render(){
   const selected=loadSet();
+  const weekendsEnabled=allowWeekendSelection();
   calEl.innerHTML="";
 
   const y=current.getFullYear();
@@ -208,6 +222,9 @@ function render(){
   grid.className="cal-grid";
 
   let monthCount=0;
+  document.getElementById("allowWeekendInput").checked=weekendsEnabled;
+  document.getElementById("weekendLegend").innerHTML =
+    `<span class="dot weekend"></span>土日（${weekendsEnabled?"選択可能":"選択不可"}）`;
 
   for(let i=0;i<42;i++){
     const d=new Date(start); d.setDate(start.getDate()+i);
@@ -220,7 +237,7 @@ function render(){
     if(other) cell.classList.add("other-month");
     if(fmt(new Date())===id) cell.classList.add("today");
 
-    const selectable = weekday && inRange(d);
+    const selectable = inRange(d) && (weekday || weekendsEnabled);
     if(!selectable) cell.classList.add("disabled");
 
     const num=document.createElement("div");
@@ -328,6 +345,10 @@ async function saveToServer(showAlert = true){
 /* ======================= 操作 ======================= */
 document.getElementById("prevBtn").addEventListener("click",()=>{ current.setMonth(current.getMonth()-1); render(); });
 document.getElementById("nextBtn").addEventListener("click",()=>{ current.setMonth(current.getMonth()+1); render(); });
+document.getElementById("allowWeekendInput").addEventListener("change",e=>{
+  localStorage.setItem(WEEKEND_SELECTION_KEY, e.target.checked ? "1" : "0");
+  render();
+});
 
 document.getElementById("loadServerBtn").addEventListener("click",loadFromServer);
 document.getElementById("saveServerBtn").addEventListener("click", () => saveToServer(true));
